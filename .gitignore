@@ -1,0 +1,38 @@
+# ──────────────────────────────────────────────────────
+# WeatherHub — .gitignore
+# Files and folders that should NOT be committed to Git
+# ──────────────────────────────────────────────────────
+
+# Python virtual environment — never commit this
+venv/
+.venv/
+env/
+
+# Python bytecode cache
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+
+# Environment variables / secrets file
+.env
+.env.local
+.env.*.local
+
+# Flask instance folder (used for config in larger projects)
+instance/
+
+# Editor-specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/

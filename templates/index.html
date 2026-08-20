@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="WeatherHub - Modern weather dashboard with real-time data, 5-day forecast, air quality, and automatic location detection.">
+    <title>WeatherHub - Real-Time Weather Dashboard</title>
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome 6 Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <!-- Leaflet.js CSS (Interactive map) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+    <!-- WeatherHub Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+    <!-- ════════════════════════════════════════
+         HEADER — Frosted pill container
+    ════════════════════════════════════════ -->
+    <header class="site-header">
+        <div class="header-inner">
+
+            <!-- Left: Brand -->
+            <div class="brand">
+                <i class="fa-solid fa-cloud-sun brand-icon"></i>
+                <span class="brand-name">WeatherHub</span>
+            </div>
+
+            <!-- Center: Search -->
+            <div class="search-area">
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                    <input
+                        type="text"
+                        id="search-input"
+                        placeholder="Search for a city..."
+                        autocomplete="off"
+                    >
+                    <button id="search-btn" title="Search">
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right: Clock + Buttons -->
+            <div class="header-controls">
+                <div class="digital-clock" id="digital-clock">12:00:00 PM</div>
+                <button class="icon-btn" id="theme-toggle-btn" title="Toggle dark/light mode">
+                    <i class="fa-solid fa-moon" id="theme-icon"></i>
+                </button>
+                <button class="icon-btn" id="refresh-btn" title="Refresh weather">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </div>
+
+        </div>
+    </header>
+
+
+    <!-- ════════════════════════════════════════
+         MAIN CONTENT
+    ════════════════════════════════════════ -->
+    <main class="main-content">
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="loading-overlay">
+            <div class="loading-spinner">
+                <i class="fa-solid fa-cloud-sun"></i>
+                <p id="loading-text">Detecting your location...</p>
+            </div>
+        </div>
+
+        <!-- Error Banner -->
+        <div id="error-banner" class="error-banner hidden">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span id="error-message">Something went wrong.</span>
+            <button id="error-close-btn" class="error-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Location Denied Notice -->
+        <div id="location-denied" class="location-denied hidden">
+            <i class="fa-solid fa-location-crosshairs"></i>
+            <p>Location access was unavailable. Search for a city above.</p>
+        </div>
+
+        <!-- Dashboard — hidden until data loads -->
+        <div id="dashboard" class="dashboard hidden">
+
+            <!-- ── ROW 1: Current Weather + Map ── -->
+            <div class="grid-row-1">
+
+                <!-- Current Weather Card -->
+                <div class="card current-weather-card">
+
+                    <!-- City name + icon -->
+                    <div class="current-top">
+                        <div class="location-info">
+                            <!-- JS will fill this as:  Jaipur, <span>India</span> -->
+                            <h2 id="city-name">--</h2>
+                            <p id="weather-date" class="weather-date">--</p>
+                            <p id="last-updated" class="last-updated">Updated: --</p>
+                        </div>
+                        <div class="current-weather-icon">
+                            <i id="main-weather-icon" class="fa-solid fa-sun weather-icon-large"></i>
+                        </div>
+                    </div>
+
+                    <!-- Big temperature -->
+                    <div class="current-temp-row">
+                        <div class="big-temp">
+                            <span id="current-temp">--</span>
+                            <span class="temp-unit">°</span>
+                        </div>
+                        <div class="feels-desc">
+                            <p id="weather-description" class="weather-desc">--</p>
+                            <p class="feels-like-label">Feels Like</p>
+                            <p id="feels-like" class="feels-like-val">--°</p>
+                        </div>
+                    </div>
+
+                    <!-- Badge pills — Row 1: AQI, Wind, Humidity, UV -->
+                    <div class="quick-badges">
+                        <div class="badge">
+                            <i class="fa-solid fa-leaf"></i>
+                            <span class="badge-text">AQI: <strong id="badge-aqi">--</strong></span>
+                        </div>
+                        <div class="badge">
+                            <i class="fa-solid fa-wind"></i>
+                            <span class="badge-text"><strong id="badge-wind">--</strong> km/h</span>
+                        </div>
+                        <div class="badge">
+                            <i class="fa-solid fa-droplet"></i>
+                            <span class="badge-text"><strong id="badge-humidity">--</strong>%</span>
+                        </div>
+                        <div class="badge">
+                            <i class="fa-solid fa-sun"></i>
+                            <span class="badge-text">UV: <strong id="badge-uv">--</strong></span>
+                        </div>
+                    </div>
+
+                    <!-- Badge pills — Row 2: Pressure, Visibility, Cloud, Wind Dir -->
+                    <div class="quick-badges">
+                        <div class="badge">
+                            <i class="fa-solid fa-gauge-high"></i>
+                            <span class="badge-text"><strong id="badge-pressure">--</strong> hPa</span>
+                        </div>
+                        <div class="badge">
+                            <i class="fa-solid fa-eye"></i>
+                            <span class="badge-text"><strong id="badge-visibility">--</strong> km</span>
+                        </div>
+                        <div class="badge">
+                            <i class="fa-solid fa-cloud"></i>
+                            <span class="badge-text">Cloud: <strong id="badge-cloud">--</strong>%</span>
+                        </div>
+                        <div class="badge">
+                            <i class="fa-solid fa-compass"></i>
+                            <span class="badge-text"><strong id="badge-wind-dir">--</strong></span>
+                        </div>
+                    </div>
+
+                </div><!-- /current-weather-card -->
+
+
+                <!-- Map Card -->
+                <div class="card map-card">
+                    <div class="card-header">
+                        <i class="fa-solid fa-map-location-dot"></i>
+                        <h3>Live Map</h3>
+                        <span class="map-source-badge">Leaflet / OSM</span>
+                    </div>
+                    <div id="map" class="map-container"></div>
+                    <div class="map-coords">
+                        <span>Lat: <strong id="map-lat">--</strong></span>
+                        <span>Lon: <strong id="map-lon">--</strong></span>
+                    </div>
+                </div>
+
+            </div><!-- /grid-row-1 -->
+
+
+            <!-- ── Air Quality ── -->
+            <div class="card air-quality-card">
+                <div class="card-header">
+                    <i class="fa-solid fa-wind"></i>
+                    <h3>Air Quality</h3>
+                    <span id="aqi-label-badge" class="aqi-quality-badge">--</span>
+                </div>
+                <div class="aq-grid">
+                    <div class="aq-item">
+                        <i class="fa-solid fa-gauge"></i>
+                        <p class="aq-label">US AQI</p>
+                        <p class="aq-val" id="aq-aqi">--</p>
+                    </div>
+                    <div class="aq-item">
+                        <i class="fa-solid fa-smog"></i>
+                        <p class="aq-label">PM 2.5</p>
+                        <p class="aq-val" id="aq-pm25">-- μg/m³</p>
+                    </div>
+                    <div class="aq-item">
+                        <i class="fa-solid fa-cloud-meatball"></i>
+                        <p class="aq-label">PM 10</p>
+                        <p class="aq-val" id="aq-pm10">-- μg/m³</p>
+                    </div>
+                    <div class="aq-item">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <p class="aq-label">Status</p>
+                        <p class="aq-val" id="aq-status">--</p>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- ── 7-Day Forecast ── -->
+            <div class="card forecast-card">
+                <div class="card-header">
+                    <i class="fa-solid fa-calendar-days"></i>
+                    <h3>7-Day Forecast</h3>
+                </div>
+                <!-- Scroll wrapper allows horizontal swipe on mobile -->
+                <div class="daily-scroll-wrapper">
+                    <!-- Day cards are injected here by JavaScript -->
+                    <div class="daily-grid" id="daily-forecast-grid"></div>
+                </div>
+            </div>
+
+
+            <!-- ── 24-Hour Forecast ── -->
+            <div class="card hourly-card">
+                <div class="card-header">
+                    <i class="fa-solid fa-clock"></i>
+                    <h3>24-Hour Forecast</h3>
+                </div>
+                <div class="hourly-scroll-wrapper">
+                    <!-- Hourly items are injected here by JavaScript -->
+                    <div class="hourly-row" id="hourly-forecast-row"></div>
+                </div>
+            </div>
+
+
+            <!-- ── Weather Details ── -->
+            <div class="card details-card">
+                <div class="card-header">
+                    <i class="fa-solid fa-sliders"></i>
+                    <h3>Weather Details</h3>
+                </div>
+                <div class="details-grid">
+
+                    <div class="detail-item">
+                        <div class="detail-top">
+                            <i class="fa-solid fa-droplet detail-icon"></i>
+                            <p class="detail-label">Humidity</p>
+                        </div>
+                        <p class="detail-val" id="d-humidity">--%</p>
+                    </div>
+
+                    <div class="detail-item">
+                        <div class="detail-top">
+                            <i class="fa-solid fa-gauge-high detail-icon"></i>
+                            <p class="detail-label">Pressure</p>
+                        </div>
+                        <p class="detail-val" id="d-pressure">-- hPa</p>
+                    </div>
+
+                    <div class="detail-item">
+                        <div class="detail-top">
+                            <i class="fa-solid fa-wind detail-icon"></i>
+                            <p class="detail-label">Wind</p>
+                        </div>
+                        <p class="detail-val" id="d-wind">-- km/h</p>
+                        <p class="detail-sub" id="d-wind-dir">Direction: --</p>
+                    </div>
+
+                    <div class="detail-item">
+                        <div class="detail-top">
+                            <i class="fa-solid fa-eye detail-icon"></i>
+                            <p class="detail-label">Visibility</p>
+                        </div>
+                        <p class="detail-val" id="d-visibility">-- km</p>
+                    </div>
+
+                    <div class="detail-item">
+                        <div class="detail-top">
+                            <i class="fa-solid fa-cloud detail-icon"></i>
+                            <p class="detail-label">Cloud Cover</p>
+                        </div>
+                        <p class="detail-val" id="d-cloud">--%</p>
+                    </div>
+
+                    <div class="detail-item">
+                        <div class="detail-top">
+                            <i class="fa-solid fa-sun detail-icon"></i>
+                            <p class="detail-label">UV Index</p>
+                        </div>
+                        <p class="detail-val" id="d-uv">--</p>
+                    </div>
+
+                    <div class="detail-item">
+                        <div class="detail-top">
+                            <i class="fa-solid fa-sunrise detail-icon"></i>
+                            <p class="detail-label">Sunrise</p>
+                        </div>
+                        <p class="detail-val" id="d-sunrise">--</p>
+                    </div>
+
+                    <div class="detail-item">
+                        <div class="detail-top">
+                            <i class="fa-solid fa-sunset detail-icon"></i>
+                            <p class="detail-label">Sunset</p>
+                        </div>
+                        <p class="detail-val" id="d-sunset">--</p>
+                    </div>
+
+                </div>
+            </div><!-- /details-card -->
+
+        </div><!-- /dashboard -->
+
+    </main>
+
+
+    <!-- ════════════════════════════════════════
+         FOOTER
+    ════════════════════════════════════════ -->
+    <footer class="site-footer">
+        <div class="footer-inner">
+
+            <p class="footer-copyright-main">
+                &copy; 2026 <span>WeatherHub</span>
+            </p>
+
+            <div class="footer-divider"></div>
+
+            <p class="footer-credit-label">Designed &amp; Developed by</p>
+            <p class="footer-dev-name">Lakshya Vijay Singh</p>
+
+            <p class="footer-stack">
+                Built with
+                <span class="tech-tag">Python</span>
+                <span class="tech-tag">Flask</span>
+                <span class="tech-tag">Open-Meteo</span>
+            </p>
+
+            <div class="footer-links">
+                <!--
+                    ════════════════════════════════════════════════
+                    CONFIGURE YOUR GITHUB URL BELOW
+                    Replace the # with your actual GitHub profile URL.
+                    Example: https://github.com/lakshya-vijay-singh
+                    ════════════════════════════════════════════════
+                -->
+                <a
+                    href="#"
+                    class="github-btn"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    id="github-link"
+                    title="View on GitHub"
+                >
+                    <i class="fa-brands fa-github"></i>
+                    GitHub
+                </a>
+
+                <!--
+                    ════════════════════════════════════════════════
+                    CONFIGURE YOUR LINKEDIN URL BELOW
+                    Replace the # with your actual LinkedIn profile URL.
+                    Example: https://linkedin.com/in/lakshya-vijay-singh
+                    ════════════════════════════════════════════════
+                -->
+                <a
+                    href="#"
+                    class="linkedin-btn"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    id="linkedin-link"
+                    title="Connect on LinkedIn"
+                >
+                    <i class="fa-brands fa-linkedin"></i>
+                    LinkedIn
+                </a>
+            </div>
+
+        </div>
+    </footer>
+
+
+    <!-- Scroll to Top Button -->
+    <button class="scroll-top-btn" id="scroll-top-btn" title="Back to top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+
+
+    <!-- Leaflet.js (map) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- WeatherHub JavaScript -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+</body>
+</html>
